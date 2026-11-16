@@ -1,6 +1,8 @@
+using Inventory.API.Controllers.v1;
 using Inventory.Application.Common;
 using Inventory.Domain.Common;
 using Inventory.Infrastructure.Tenancy;
+using Microsoft.AspNetCore.Mvc;
 using NetArchTest.Rules;
 
 namespace Inventory.ArchitectureTests;
@@ -57,5 +59,42 @@ public sealed class CleanArchitectureDependencyTests
 
         result.IsSuccessful.Should().BeTrue(
             because: "Infrastructure layer must not depend on the API composition root.");
+    }
+
+    [Fact]
+    public void Controllers_Should_Never_Expose_Domain_Entities_Directly_In_Return_Types()
+    {
+        var apiAssembly = typeof(AuthController).Assembly;
+        var controllerTypes = apiAssembly.GetTypes()
+            .Where(t => typeof(ControllerBase).IsAssignableFrom(t) && !t.IsAbstract)
+            .ToList();
+
+        controllerTypes.Should().NotBeEmpty();
+
+        foreach (var controller in controllerTypes)
+        {
+            var publicMethods = controller.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly);
+            foreach (var method in publicMethods)
+            {
+                var returnType = method.ReturnType;
+                ContainsEntityBaseType(returnType).Should().BeFalse(
+                    because: $"Controller '{controller.Name}.{method.Name}' must return DTOs rather than Domain entities.");
+            }
+        }
+    }
+
+    private static bool ContainsEntityBaseType(Type type)
+    {
+        if (typeof(EntityBase).IsAssignableFrom(type))
+        {
+            return true;
+        }
+
+        if (type.IsGenericType)
+        {
+            return type.GetGenericArguments().Any(ContainsEntityBaseType);
+        }
+
+        return false;
     }
 }

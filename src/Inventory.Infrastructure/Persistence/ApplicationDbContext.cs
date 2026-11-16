@@ -1,3 +1,4 @@
+using System.Data;
 using System.Linq.Expressions;
 using System.Text.Json;
 using Inventory.Application.Common;
@@ -19,6 +20,7 @@ namespace Inventory.Infrastructure.Persistence;
 
 public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 {
+    private static readonly SemaphoreSlim NonPostgresConcurrencyGate = new(1, 1);
     private readonly ITenantContext _tenantContext;
 
     public Guid? CurrentTenantId => _tenantContext.TenantId;
@@ -58,14 +60,32 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
+    public bool IsPostgreSql =>
+        string.Equals(Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase);
+
     public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         if (Database.CurrentTransaction is not null)
         {
-            return Database.CurrentTransaction;
+            return new NoOpNestedTransaction(Database.CurrentTransaction);
         }
 
-        return await Database.BeginTransactionAsync(cancellationToken);
+        if (IsPostgreSql)
+        {
+            return await Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
+        }
+
+        await NonPostgresConcurrencyGate.WaitAsync(cancellationToken);
+        try
+        {
+            var innerTx = await Database.BeginTransactionAsync(cancellationToken);
+            return new GatedDbContextTransaction(innerTx, NonPostgresConcurrencyGate);
+        }
+        catch
+        {
+            NonPostgresConcurrencyGate.Release();
+            throw;
+        }
     }
 
     public async Task<IReadOnlyDictionary<(Guid WarehouseId, Guid ProductId), InventoryItem>> GetOrCreateAndLockInventoryItemsAsync(
@@ -83,7 +103,7 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 
         foreach (var (warehouseId, productId) in sortedTargets)
         {
-            if (Database.IsRelational())
+            if (IsPostgreSql)
             {
                 var newId = Guid.CreateVersion7();
                 var now = DateTimeOffset.UtcNow;
@@ -132,6 +152,7 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
             else
             {
                 var item = await InventoryItems
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(
                         i => i.TenantId == tenantId && i.WarehouseId == warehouseId && i.ProductId == productId,
                         cancellationToken);
@@ -141,6 +162,10 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                     item = new InventoryItem(tenantId, warehouseId, productId);
                     InventoryItems.Add(item);
                     await SaveChangesAsync(cancellationToken);
+                }
+                else
+                {
+                    await Entry(item).ReloadAsync(cancellationToken);
                 }
 
                 result[(warehouseId, productId)] = item;
@@ -193,6 +218,27 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                 modelBuilder.Entity(entityType.ClrType)
                     .HasQueryFilter(CreateTenantFilterExpression(entityType.ClrType));
             }
+
+            if (!IsPostgreSql && typeof(TenantEntityBase).IsAssignableFrom(entityType.ClrType))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property(nameof(TenantEntityBase.Version))
+                    .IsConcurrencyToken(false)
+                    .ValueGeneratedNever();
+            }
+
+            if (!IsPostgreSql)
+            {
+                // SQLite does not support ORDER BY on DateTimeOffset directly unless converted to ticks/ISO string
+                foreach (var property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
+                    {
+                        property.SetValueConverter(
+                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.DateTimeOffsetToBinaryConverter());
+                    }
+                }
+            }
         }
     }
 
@@ -205,5 +251,57 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
         var equality = Expression.Equal(nullableTenantProperty, currentTenantProperty);
 
         return Expression.Lambda(equality, parameter);
+    }
+
+    private sealed class NoOpNestedTransaction(IDbContextTransaction inner) : IDbContextTransaction
+    {
+        public Guid TransactionId => inner.TransactionId;
+        public void Commit() { }
+        public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void Rollback() { }
+        public Task RollbackAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void Dispose() { }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class GatedDbContextTransaction(IDbContextTransaction inner, SemaphoreSlim gate) : IDbContextTransaction
+    {
+        private int _released;
+
+        public Guid TransactionId => inner.TransactionId;
+        public void Commit() => inner.Commit();
+        public Task CommitAsync(CancellationToken cancellationToken = default) => inner.CommitAsync(cancellationToken);
+        public void Rollback() => inner.Rollback();
+        public Task RollbackAsync(CancellationToken cancellationToken = default) => inner.RollbackAsync(cancellationToken);
+
+        public void Dispose()
+        {
+            try
+            {
+                inner.Dispose();
+            }
+            finally
+            {
+                if (Interlocked.Exchange(ref _released, 1) == 0)
+                {
+                    gate.Release();
+                }
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await inner.DisposeAsync();
+            }
+            finally
+            {
+                if (Interlocked.Exchange(ref _released, 1) == 0)
+                {
+                    gate.Release();
+                }
+            }
+        }
     }
 }
