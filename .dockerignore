@@ -1,0 +1,27 @@
+# =============================================================================
+# Root .dockerignore
+# =============================================================================
+**/.git
+**/.gitignore
+**/.github
+**/.vs
+**/.idea
+**/.vscode
+**/bin
+**/obj
+**/out
+**/dist
+**/publish
+**/node_modules
+**/.next
+**/TestResults
+**/coverage
+**/*.md
+**/docs
+.env
+.env.*
+!.env.example
+docker-compose*.yml
+*.log
+postgres_data/
+backups/

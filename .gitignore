@@ -1,0 +1,145 @@
+# =============================================================================
+# Root .gitignore — Enterprise Inventory & Order Management SaaS
+# Stack: .NET / C#, Next.js / TypeScript, PostgreSQL, Docker
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. Environment Variables, Credentials & Secrets
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.cer
+*.crt
+secrets.json
+appsettings.Local.json
+appsettings.*.Local.json
+**/appsettings.Secrets.json
+
+# -----------------------------------------------------------------------------
+# 2. .NET / C# Build Artifacts, Temporary Files & Test Outputs
+# -----------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+*.trx
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+coverage.json
+coverage.info
+lcov.info
+
+# Visual Studio / Rider / VS Code user-specific settings
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+mono_crash.*
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+launchSettings.Local.json
+
+# .NET NuGet & publish outputs
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+publish/
+
+# -----------------------------------------------------------------------------
+# 3. Next.js / Node.js / TypeScript Frontend Artifacts
+# -----------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel/
+.swc/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+.eslintcache
+.stylelintcache
+
+# -----------------------------------------------------------------------------
+# 4. Docker, Local Database Volumes & Backups
+# -----------------------------------------------------------------------------
+postgres_data/
+pgdata/
+docker-data/
+backups/
+*.sql.gz
+*.dump
+*.bak
+docker-compose.override.local.yml
+
+# -----------------------------------------------------------------------------
+# 5. Operating System & General Editor Hygiene
+# -----------------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+*.log
