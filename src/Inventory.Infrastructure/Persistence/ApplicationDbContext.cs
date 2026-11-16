@@ -2,9 +2,12 @@ using System.Linq.Expressions;
 using System.Text.Json;
 using Inventory.Application.Common;
 using Inventory.Domain.Auditing;
+using Inventory.Domain.Catalog;
 using Inventory.Domain.Common;
 using Inventory.Domain.Identity;
 using Inventory.Domain.Organizations;
+using Inventory.Domain.Suppliers;
+using Inventory.Domain.Warehouses;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -30,6 +33,12 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<OrganizationRole> OrganizationRoles => Set<OrganizationRole>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<SupplierProduct> SupplierProducts => Set<SupplierProduct>();
+    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<WarehouseLocation> WarehouseLocations => Set<WarehouseLocation>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
@@ -79,7 +88,6 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
-        // Apply tenant-aware global query filters to all entities implementing ITenantEntity
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(ITenantEntity).IsAssignableFrom(entityType.ClrType))

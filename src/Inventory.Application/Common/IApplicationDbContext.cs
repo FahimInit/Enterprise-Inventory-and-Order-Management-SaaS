@@ -1,6 +1,9 @@
 using Inventory.Domain.Auditing;
+using Inventory.Domain.Catalog;
 using Inventory.Domain.Identity;
 using Inventory.Domain.Organizations;
+using Inventory.Domain.Suppliers;
+using Inventory.Domain.Warehouses;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -15,6 +18,12 @@ public interface IApplicationDbContext
     DbSet<OrganizationRole> OrganizationRoles { get; }
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<OrganizationMember> OrganizationMembers { get; }
+    DbSet<Category> Categories { get; }
+    DbSet<Product> Products { get; }
+    DbSet<Supplier> Suppliers { get; }
+    DbSet<SupplierProduct> SupplierProducts { get; }
+    DbSet<Warehouse> Warehouses { get; }
+    DbSet<WarehouseLocation> WarehouseLocations { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
 
