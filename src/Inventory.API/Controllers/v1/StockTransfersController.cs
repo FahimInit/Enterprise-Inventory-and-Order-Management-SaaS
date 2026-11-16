@@ -1,3 +1,4 @@
+using Inventory.API.Filters;
 using Inventory.Application.Common;
 using Inventory.Application.StockTransfers;
 using Inventory.Domain.Identity;
@@ -42,6 +43,7 @@ public sealed class StockTransfersController : ControllerBase
     }
 
     [HttpPost]
+    [Idempotent]
     [HasPermission(Permissions.Transfers.Create)]
     [ProducesResponseType(typeof(StockTransferDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<StockTransferDto>> CreateTransfer(
@@ -53,6 +55,7 @@ public sealed class StockTransfersController : ControllerBase
     }
 
     [HttpPost("{transferId:guid}/dispatch")]
+    [Idempotent]
     [HasPermission(Permissions.Transfers.Dispatch)]
     [ProducesResponseType(typeof(StockTransferDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<StockTransferDto>> DispatchTransfer(
@@ -64,6 +67,7 @@ public sealed class StockTransfersController : ControllerBase
     }
 
     [HttpPost("{transferId:guid}/receive")]
+    [Idempotent]
     [HasPermission(Permissions.Transfers.Receive)]
     [ProducesResponseType(typeof(StockTransferDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<StockTransferDto>> ReceiveTransfer(
@@ -75,6 +79,7 @@ public sealed class StockTransfersController : ControllerBase
     }
 
     [HttpPost("{transferId:guid}/cancel")]
+    [Idempotent]
     [HasPermission(Permissions.Transfers.Dispatch)]
     [ProducesResponseType(typeof(StockTransferDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<StockTransferDto>> CancelTransfer(
