@@ -47,7 +47,12 @@ public sealed class IdempotentAttribute : Attribute, IAsyncActionFilter
         var requestPath = context.HttpContext.Request.Path.ToString();
         var requestMethod = context.HttpContext.Request.Method;
 
-        var serializedArgs = JsonSerializer.Serialize(context.ActionArguments);
+        var serializableArgs = context.ActionArguments
+            .Where(kvp => kvp.Value is not CancellationToken)
+            .OrderBy(kvp => kvp.Key, StringComparer.Ordinal)
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+        var serializedArgs = JsonSerializer.Serialize(serializableArgs);
         var payloadSignature = $"{requestMethod}:{requestPath}:{serializedArgs}";
         var requestHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payloadSignature)));
 
