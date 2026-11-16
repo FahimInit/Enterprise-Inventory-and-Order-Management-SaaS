@@ -5,7 +5,9 @@ using Inventory.Domain.Auditing;
 using Inventory.Domain.Catalog;
 using Inventory.Domain.Common;
 using Inventory.Domain.Identity;
+using Inventory.Domain.Inventory;
 using Inventory.Domain.Organizations;
+using Inventory.Domain.StockTransfers;
 using Inventory.Domain.Suppliers;
 using Inventory.Domain.Warehouses;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +41,12 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<SupplierProduct> SupplierProducts => Set<SupplierProduct>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<WarehouseLocation> WarehouseLocations => Set<WarehouseLocation>();
+    public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockReservation> StockReservations => Set<StockReservation>();
+    public DbSet<InventoryReconciliation> InventoryReconciliations => Set<InventoryReconciliation>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
@@ -50,6 +58,91 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
         }
 
         return await Database.BeginTransactionAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<(Guid WarehouseId, Guid ProductId), InventoryItem>> GetOrCreateAndLockInventoryItemsAsync(
+        Guid tenantId,
+        IEnumerable<(Guid WarehouseId, Guid ProductId)> targets,
+        CancellationToken cancellationToken = default)
+    {
+        var sortedTargets = targets
+            .Distinct()
+            .OrderBy(t => t.WarehouseId)
+            .ThenBy(t => t.ProductId)
+            .ToList();
+
+        var result = new Dictionary<(Guid WarehouseId, Guid ProductId), InventoryItem>(sortedTargets.Count);
+
+        foreach (var (warehouseId, productId) in sortedTargets)
+        {
+            if (Database.IsRelational())
+            {
+                var newId = Guid.CreateVersion7();
+                var now = DateTimeOffset.UtcNow;
+
+                // Ensure the inventory_items row exists atomically without race conditions
+                await Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO inventory_items (
+                        id,
+                        tenant_id,
+                        warehouse_id,
+                        product_id,
+                        on_hand_quantity,
+                        reserved_quantity,
+                        in_transit_quantity,
+                        created_at_utc
+                    )
+                    VALUES (
+                        {newId},
+                        {tenantId},
+                        {warehouseId},
+                        {productId},
+                        0,
+                        0,
+                        0,
+                        {now}
+                    )
+                    ON CONFLICT (tenant_id, warehouse_id, product_id) DO NOTHING;
+                    """,
+                    cancellationToken);
+
+                // Acquire an exclusive row-level lock (SELECT ... FOR UPDATE) in deterministic order
+                var lockedItem = await InventoryItems
+                    .FromSqlInterpolated($"""
+                        SELECT *
+                        FROM inventory_items
+                        WHERE tenant_id = {tenantId}
+                          AND warehouse_id = {warehouseId}
+                          AND product_id = {productId}
+                        FOR UPDATE
+                        """)
+                    .IgnoreQueryFilters()
+                    .FirstAsync(cancellationToken);
+
+                // Reload in case the entity was already tracked in memory prior to acquiring the row lock
+                await Entry(lockedItem).ReloadAsync(cancellationToken);
+
+                result[(warehouseId, productId)] = lockedItem;
+            }
+            else
+            {
+                var item = await InventoryItems
+                    .FirstOrDefaultAsync(
+                        i => i.TenantId == tenantId && i.WarehouseId == warehouseId && i.ProductId == productId,
+                        cancellationToken);
+
+                if (item is null)
+                {
+                    item = new InventoryItem(tenantId, warehouseId, productId);
+                    InventoryItems.Add(item);
+                    await SaveChangesAsync(cancellationToken);
+                }
+
+                result[(warehouseId, productId)] = item;
+            }
+        }
+
+        return result;
     }
 
     public void RecordAudit(
