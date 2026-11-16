@@ -7,6 +7,8 @@ using Inventory.Domain.Common;
 using Inventory.Domain.Identity;
 using Inventory.Domain.Inventory;
 using Inventory.Domain.Organizations;
+using Inventory.Domain.PurchaseOrders;
+using Inventory.Domain.SalesOrders;
 using Inventory.Domain.StockTransfers;
 using Inventory.Domain.Suppliers;
 using Inventory.Domain.Warehouses;
@@ -47,6 +49,12 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<InventoryReconciliation> InventoryReconciliations => Set<InventoryReconciliation>();
     public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
     public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+    public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+    public DbSet<SalesOrder> SalesOrders => Set<SalesOrder>();
+    public DbSet<SalesOrderLine> SalesOrderLines => Set<SalesOrderLine>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
@@ -80,7 +88,6 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                 var newId = Guid.CreateVersion7();
                 var now = DateTimeOffset.UtcNow;
 
-                // Ensure the inventory_items row exists atomically without race conditions
                 await Database.ExecuteSqlInterpolatedAsync($"""
                     INSERT INTO inventory_items (
                         id,
@@ -106,7 +113,6 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                     """,
                     cancellationToken);
 
-                // Acquire an exclusive row-level lock (SELECT ... FOR UPDATE) in deterministic order
                 var lockedItem = await InventoryItems
                     .FromSqlInterpolated($"""
                         SELECT *
@@ -119,7 +125,6 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                     .IgnoreQueryFilters()
                     .FirstAsync(cancellationToken);
 
-                // Reload in case the entity was already tracked in memory prior to acquiring the row lock
                 await Entry(lockedItem).ReloadAsync(cancellationToken);
 
                 result[(warehouseId, productId)] = lockedItem;

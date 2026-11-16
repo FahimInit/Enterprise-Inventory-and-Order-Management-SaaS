@@ -1,3 +1,4 @@
+using Inventory.API.Filters;
 using Inventory.Application.Common;
 using Inventory.Application.Inventory;
 using Inventory.Domain.Identity;
@@ -53,6 +54,7 @@ public sealed class InventoryController : ControllerBase
     }
 
     [HttpPost("adjustments")]
+    [Idempotent]
     [HasPermission(Permissions.Inventory.Adjust)]
     [ProducesResponseType(typeof(InventoryBalanceDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<InventoryBalanceDto>> AdjustInventory(
@@ -64,6 +66,7 @@ public sealed class InventoryController : ControllerBase
     }
 
     [HttpPost("reconcile")]
+    [Idempotent]
     [HasPermission(Permissions.Inventory.Reconcile)]
     [ProducesResponseType(typeof(ReconciliationResultDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<ReconciliationResultDto>> ReconcileInventory(

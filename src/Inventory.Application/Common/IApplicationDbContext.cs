@@ -3,6 +3,8 @@ using Inventory.Domain.Catalog;
 using Inventory.Domain.Identity;
 using Inventory.Domain.Inventory;
 using Inventory.Domain.Organizations;
+using Inventory.Domain.PurchaseOrders;
+using Inventory.Domain.SalesOrders;
 using Inventory.Domain.StockTransfers;
 using Inventory.Domain.Suppliers;
 using Inventory.Domain.Warehouses;
@@ -32,6 +34,12 @@ public interface IApplicationDbContext
     DbSet<InventoryReconciliation> InventoryReconciliations { get; }
     DbSet<StockTransfer> StockTransfers { get; }
     DbSet<StockTransferLine> StockTransferLines { get; }
+    DbSet<PurchaseOrder> PurchaseOrders { get; }
+    DbSet<PurchaseOrderLine> PurchaseOrderLines { get; }
+    DbSet<GoodsReceipt> GoodsReceipts { get; }
+    DbSet<GoodsReceiptLine> GoodsReceiptLines { get; }
+    DbSet<SalesOrder> SalesOrders { get; }
+    DbSet<SalesOrderLine> SalesOrderLines { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
 
@@ -39,11 +47,6 @@ public interface IApplicationDbContext
 
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Acquires deterministic PostgreSQL row-level locks (SELECT ... FOR UPDATE)
-    /// ordered by (WarehouseId, ProductId) to prevent race conditions and deadlocks.
-    /// Ensures rows exist before locking.
-    /// </summary>
     Task<IReadOnlyDictionary<(Guid WarehouseId, Guid ProductId), InventoryItem>> GetOrCreateAndLockInventoryItemsAsync(
         Guid tenantId,
         IEnumerable<(Guid WarehouseId, Guid ProductId)> targets,
