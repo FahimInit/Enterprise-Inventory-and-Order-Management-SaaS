@@ -1,0 +1,68 @@
+services:
+  inventory-db:
+    image: postgres:17-alpine
+    container_name: enterprise-inventory-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-enterprise_inventory_db}
+      POSTGRES_USER: ${POSTGRES_USER:-inventory_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_ME_LOCAL_DEV_PASSWORD_ONLY}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - inventory_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-inventory_app} -d ${POSTGRES_DB:-enterprise_inventory_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - inventory-net
+
+  inventory-api:
+    build:
+      context: .
+      dockerfile: src/Inventory.API/Dockerfile
+    container_name: enterprise-inventory-api
+    restart: unless-stopped
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: "Host=inventory-db;Port=5432;Database=${POSTGRES_DB:-enterprise_inventory_db};Username=${POSTGRES_USER:-inventory_app};Password=${POSTGRES_PASSWORD:-CHANGE_ME_LOCAL_DEV_PASSWORD_ONLY}"
+      Jwt__Issuer: ${Jwt__Issuer:-EnterpriseInventorySaaS}
+      Jwt__Audience: ${Jwt__Audience:-EnterpriseInventorySaaS.Clients}
+      Jwt__SecretKey: ${Jwt__SecretKey:-DEV_ONLY_REPLACE_IN_PRODUCTION_WITH_LONG_CRYPTOGRAPHIC_KEY_64_BYTES}
+      Jwt__AccessTokenExpirationMinutes: ${Jwt__AccessTokenExpirationMinutes:-30}
+      Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays:-14}
+      Cors__AllowedOrigins__0: "http://localhost:${FRONTEND_PORT:-3000}"
+      Seed__EnableDemoData: ${Seed__EnableDemoData:-true}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    networks:
+      - inventory-net
+
+  inventory-web:
+    build:
+      context: ./frontend/inventory-web
+      dockerfile: Dockerfile
+    container_name: enterprise-inventory-web
+    restart: unless-stopped
+    depends_on:
+      - inventory-api
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080/api/v1}
+      INTERNAL_API_BASE_URL: ${INTERNAL_API_BASE_URL:-http://inventory-api:8080/api/v1}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - inventory-net
+
+volumes:
+  inventory_postgres_data:
+    name: inventory_postgres_data
+
+networks:
+  inventory-net:
+    driver: bridge
