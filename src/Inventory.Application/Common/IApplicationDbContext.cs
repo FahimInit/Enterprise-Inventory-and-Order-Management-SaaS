@@ -1,7 +1,9 @@
 using Inventory.Domain.Auditing;
 using Inventory.Domain.Catalog;
 using Inventory.Domain.Identity;
+using Inventory.Domain.Inventory;
 using Inventory.Domain.Organizations;
+using Inventory.Domain.StockTransfers;
 using Inventory.Domain.Suppliers;
 using Inventory.Domain.Warehouses;
 using Microsoft.EntityFrameworkCore;
@@ -24,12 +26,28 @@ public interface IApplicationDbContext
     DbSet<SupplierProduct> SupplierProducts { get; }
     DbSet<Warehouse> Warehouses { get; }
     DbSet<WarehouseLocation> WarehouseLocations { get; }
+    DbSet<InventoryItem> InventoryItems { get; }
+    DbSet<StockMovement> StockMovements { get; }
+    DbSet<StockReservation> StockReservations { get; }
+    DbSet<InventoryReconciliation> InventoryReconciliations { get; }
+    DbSet<StockTransfer> StockTransfers { get; }
+    DbSet<StockTransferLine> StockTransferLines { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
 
     DatabaseFacade Database { get; }
 
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Acquires deterministic PostgreSQL row-level locks (SELECT ... FOR UPDATE)
+    /// ordered by (WarehouseId, ProductId) to prevent race conditions and deadlocks.
+    /// Ensures rows exist before locking.
+    /// </summary>
+    Task<IReadOnlyDictionary<(Guid WarehouseId, Guid ProductId), InventoryItem>> GetOrCreateAndLockInventoryItemsAsync(
+        Guid tenantId,
+        IEnumerable<(Guid WarehouseId, Guid ProductId)> targets,
+        CancellationToken cancellationToken = default);
 
     void RecordAudit(
         string action,
