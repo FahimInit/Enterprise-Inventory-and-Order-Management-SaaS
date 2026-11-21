@@ -162,11 +162,11 @@ export default function DashboardPage() {
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
                 <tr>
                   <th className="px-4 py-2.5">Warehouse</th>
-                  <th className="px-4 py-2.5 text-right">SKUs</th>
-                  <th className="px-4 py-2.5 text-right">On-Hand</th>
-                  <th className="px-4 py-2.5 text-right">Reserved</th>
-                  <th className="px-4 py-2.5 text-right">Available</th>
-                  <th className="px-4 py-2.5 text-right">Valuation</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">SKUs</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">On-Hand</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Reserved</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Available</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Valuation</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -175,19 +175,19 @@ export default function DashboardPage() {
                     <td className="px-4 py-2.5 font-medium text-slate-900">
                       {wh.warehouseCode} — {wh.warehouseName}
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right tabular-nums">
                       {wh.distinctProductsCount}
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right tabular-nums">
                       {wh.totalOnHandUnits}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-amber-700">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-amber-700">
                       {wh.totalReservedUnits}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-emerald-700">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-emerald-700">
                       {wh.totalAvailableUnits}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-medium">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">
                       {formatCurrency(wh.totalValuation, currency)}
                     </td>
                   </tr>
@@ -225,9 +225,9 @@ export default function DashboardPage() {
                 <tr>
                   <th className="px-4 py-2.5">SKU / Product</th>
                   <th className="px-4 py-2.5">Warehouse</th>
-                  <th className="px-4 py-2.5 text-right">Available</th>
-                  <th className="px-4 py-2.5 text-right">Reorder Pt</th>
-                  <th className="px-4 py-2.5 text-right">Suggested Order</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Available</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Reorder Pt</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Suggested Order</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -240,13 +240,13 @@ export default function DashboardPage() {
                       <div className="text-slate-500">{item.productName}</div>
                     </td>
                     <td className="px-4 py-2.5">{item.warehouseCode}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-red-600">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-red-600">
                       {item.availableQuantity}
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right tabular-nums">
                       {item.reorderPoint}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-blue-700">
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-blue-700">
                       +{item.suggestedReorderQuantity}
                     </td>
                   </tr>
@@ -282,51 +282,51 @@ export default function DashboardPage() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
-              <tr>
-                <th className="px-4 py-2.5">Timestamp (UTC)</th>
-                <th className="px-4 py-2.5">Warehouse</th>
-                <th className="px-4 py-2.5">Product</th>
-                <th className="px-4 py-2.5">Type</th>
-                <th className="px-4 py-2.5 text-right">Delta</th>
-                <th className="px-4 py-2.5 text-right">Balance After</th>
-                <th className="px-4 py-2.5">Reference & Reason</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {summary.recentStockMovements.map((m) => (
-                <tr key={m.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-2.5 text-slate-500">
-                    {formatDateTime(m.occurredAtUtc)}
-                  </td>
-                  <td className="px-4 py-2.5 font-medium">
-                    {m.warehouseCode}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className="font-medium text-slate-900">
-                      {m.productSku}
-                    </span>{" "}
-                    — {m.productName}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <Badge
-                      variant={m.quantityDelta > 0 ? "success" : "warning"}
+              <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="px-4 py-2.5">Timestamp (UTC)</th>
+                  <th className="px-4 py-2.5">Warehouse</th>
+                  <th className="px-4 py-2.5">Product</th>
+                  <th className="px-4 py-2.5">Type</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Delta</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Balance After</th>
+                  <th className="px-4 py-2.5">Reference & Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {summary.recentStockMovements.map((m) => (
+                  <tr key={m.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2.5 text-slate-500">
+                      {formatDateTime(m.occurredAtUtc)}
+                    </td>
+                    <td className="px-4 py-2.5 font-medium">
+                      {m.warehouseCode}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="font-medium text-slate-900">
+                        {m.productSku}
+                      </span>{" "}
+                      — {m.productName}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Badge
+                        variant={m.quantityDelta > 0 ? "success" : "warning"}
+                      >
+                        {m.movementType}
+                      </Badge>
+                    </td>
+                    <td
+                      className={`px-4 py-2.5 text-right tabular-nums font-semibold ${
+                        m.quantityDelta > 0 ? "text-emerald-700" : "text-red-600"
+                      }`}
                     >
-                      {m.movementType}
-                    </Badge>
-                  </td>
-                  <td
-                    className={`px-4 py-2.5 text-right font-semibold ${
-                      m.quantityDelta > 0 ? "text-emerald-700" : "text-red-600"
-                    }`}
-                  >
-                    {m.quantityDelta > 0
-                      ? `+${m.quantityDelta}`
-                      : m.quantityDelta}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-medium">
-                    {m.balanceAfter}
-                  </td>
+                      {m.quantityDelta > 0
+                        ? `+${m.quantityDelta}`
+                        : m.quantityDelta}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                      {m.balanceAfter}
+                    </td>
                   <td className="px-4 py-2.5 text-slate-600">
                     <span className="font-medium text-slate-800">
                       [{m.referenceNumber}]
