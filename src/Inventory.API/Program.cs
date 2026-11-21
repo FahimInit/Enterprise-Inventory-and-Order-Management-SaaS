@@ -65,12 +65,40 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:3000"];
+var rawOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (rawOrigins is null || rawOrigins.Length == 0)
+{
+    var rawSingle = builder.Configuration.GetValue<string>("Cors:AllowedOrigins");
+    if (!string.IsNullOrWhiteSpace(rawSingle))
+    {
+        rawOrigins = rawSingle.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+}
+
+var configuredOrigins = (rawOrigins ?? ["http://localhost:3000"])
+    .Where(o => !string.IsNullOrWhiteSpace(o))
+    .Select(o => o.Trim().TrimEnd('/'))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("EnterpriseCorsPolicy", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin)) return false;
+                var trimmed = origin.Trim().TrimEnd('/');
+                if (configuredOrigins.Contains(trimmed)) return true;
+
+                if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+                {
+                    if (uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
+                    if (uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)) return true;
+                }
+
+                return false;
+            })
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials()
