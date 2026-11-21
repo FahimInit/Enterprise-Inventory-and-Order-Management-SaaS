@@ -91,12 +91,24 @@ public static class DatabaseInitializer
         var salesUser = new ApplicationUser("sales@acme-demo.local", "Sarah Jenkins (Sales Rep)", "PENDING");
         salesUser.UpdatePasswordHash(passwordHasher.HashPassword(salesUser, "SalesPass123!"));
 
-        dbContext.Users.AddRange(ownerUser, warehouseUser, salesUser);
+        var procurementUser = new ApplicationUser("procurement@acme-demo.local", "David Ross (Procurement Officer)", "PENDING");
+        procurementUser.UpdatePasswordHash(passwordHasher.HashPassword(procurementUser, "ProcurePass123!"));
+
+        var clerkUser = new ApplicationUser("clerk@acme-demo.local", "Amina Patel (Inventory Clerk)", "PENDING");
+        clerkUser.UpdatePasswordHash(passwordHasher.HashPassword(clerkUser, "ClerkPass123!"));
+
+        var auditorUser = new ApplicationUser("auditor@acme-demo.local", "Lucas Meyer (Compliance Auditor)", "PENDING");
+        auditorUser.UpdatePasswordHash(passwordHasher.HashPassword(auditorUser, "AuditorPass123!"));
+
+        dbContext.Users.AddRange(ownerUser, warehouseUser, salesUser, procurementUser, clerkUser, auditorUser);
 
         dbContext.OrganizationMembers.AddRange(
             new OrganizationMember(demoOrg.Id, ownerUser.Id, roleByName[Permissions.SystemRoleNames.Owner].Id, isOwner: true, invitedByUserId: ownerUser.Id),
             new OrganizationMember(demoOrg.Id, warehouseUser.Id, roleByName[Permissions.SystemRoleNames.WarehouseManager].Id, isOwner: false, invitedByUserId: ownerUser.Id),
-            new OrganizationMember(demoOrg.Id, salesUser.Id, roleByName[Permissions.SystemRoleNames.SalesRepresentative].Id, isOwner: false, invitedByUserId: ownerUser.Id));
+            new OrganizationMember(demoOrg.Id, salesUser.Id, roleByName[Permissions.SystemRoleNames.SalesRepresentative].Id, isOwner: false, invitedByUserId: ownerUser.Id),
+            new OrganizationMember(demoOrg.Id, procurementUser.Id, roleByName[Permissions.SystemRoleNames.ProcurementOfficer].Id, isOwner: false, invitedByUserId: ownerUser.Id),
+            new OrganizationMember(demoOrg.Id, clerkUser.Id, roleByName[Permissions.SystemRoleNames.InventoryClerk].Id, isOwner: false, invitedByUserId: ownerUser.Id),
+            new OrganizationMember(demoOrg.Id, auditorUser.Id, roleByName[Permissions.SystemRoleNames.Auditor].Id, isOwner: false, invitedByUserId: ownerUser.Id));
 
         // 4. Seed Categories & Products
         var catAutomation = new Category(demoOrg.Id, "Industrial Automation", "industrial-automation", "PLCs, sensors, and control modules");
