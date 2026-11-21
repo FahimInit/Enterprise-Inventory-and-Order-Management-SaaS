@@ -1,5 +1,27 @@
 # Deployment, Docker & Development Operations Guide
 
+## 0. Deployment Topology Options
+
+```mermaid
+flowchart LR
+    subgraph CloudPaaS["Option A: Managed Cloud PaaS"]
+        Vercel["Vercel<br/>(Next.js 15 Frontend)"]
+        Render["Render Web Service<br/>(ASP.NET Core Docker Container)"]
+        CloudDB[("Managed PostgreSQL<br/>(Neon / Supabase / Render DB)")]
+        Vercel -->|"HTTPS REST + CORS"| Render -->|"SSL / Npgsql"| CloudDB
+    end
+
+    subgraph SelfHosted["Option B: Self-Hosted Docker Compose"]
+        Proxy["Reverse Proxy / Caddy<br/>(Auto HTTPS :443)"]
+        WebC["inventory-web<br/>(:3000)"]
+        ApiC["inventory-api<br/>(:8080)"]
+        DbC[("inventory-db<br/>(PostgreSQL 17 Volume)")]
+        Proxy --> WebC
+        Proxy --> ApiC
+        ApiC --> DbC
+    end
+```
+
 ## 1. Prerequisites
 - **Docker** & **Docker Compose** (v2+)
 - **.NET 9 SDK** (`9.0.x`) for running backend tools directly on the host

@@ -65,3 +65,26 @@ All financial columns use `NUMERIC(18,4)` and all timestamps use `TIMESTAMPTZ` i
 2. **Dual Persistence:** Every modification to `InventoryItem.OnHandQuantity` atomically inserts a `StockMovement` record in the same transaction.
 3. **Deadlock-Free Pessimistic Locking:** Multi-line order confirmations, receipts, and transfers sort target items by `(WarehouseId, ProductId)` and execute `SELECT ... FOR UPDATE` on `inventory_items` inside an explicit transaction.
 4. **Optimistic Concurrency Backup:** PostgreSQL `xmin` system column is mapped as a concurrency token on all mutable aggregate roots (`InventoryItem`, `Product`, `PurchaseOrder`, `SalesOrder`, `StockTransfer`).
+
+```mermaid
+sequenceDiagram
+    participant T1 as Thread 1 (Order A Confirm)
+    participant T2 as Thread 2 (Order B Confirm)
+    participant DB as PostgreSQL (inventory_items)
+
+    Note over T1,T2: Both sort lines deterministically by (WarehouseId, ProductId)
+    T1->>DB: BEGIN TRANSACTION
+    T2->>DB: BEGIN TRANSACTION
+    T1->>DB: SELECT ... FROM inventory_items WHERE ... FOR UPDATE
+    Note over DB: Row lock acquired by Thread 1
+    T2->>DB: SELECT ... FROM inventory_items WHERE ... FOR UPDATE
+    Note over T2,DB: Thread 2 waits cleanly for Thread 1 lock release
+    T1->>DB: Validate Available >= Qty, ReserveStock(), INSERT StockReservation
+    T1->>DB: COMMIT (Releases lock)
+    Note over DB: Thread 2 acquires lock and reads updated AvailableQuantity
+    alt Sufficient Available Stock
+        T2->>DB: ReserveStock() & COMMIT
+    else Insufficient Stock
+        T2->>DB: ROLLBACK & Return 409 Conflict
+    end
+```

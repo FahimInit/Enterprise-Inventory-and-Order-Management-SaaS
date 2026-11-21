@@ -67,7 +67,22 @@ The platform is partitioned into 11 cohesive modules:
 10. **Reporting & Analytics (`Reporting`)**: Valuation, low-stock alerts, movement history, warehouse performance, and order statistics.
 11. **Audit & Activity Logs (`Auditing`)**: Append-only `AuditLog` and transactional `IdempotencyRecord`.
 
-### 3.2 Development View
+### 3.2 Development View (Clean Architecture Dependency Flow)
+
+```mermaid
+flowchart LR
+    API["Inventory.API<br/>(Controllers, Middleware, Filters, Program.cs)"]
+    INFRA["Inventory.Infrastructure<br/>(EF Core DbContext, Interceptors, Auth, Jobs)"]
+    APP["Inventory.Application<br/>(Feature Services, DTOs, Validators, Interfaces)"]
+    DOM["Inventory.Domain<br/>(Core Entities, Value Objects, Enums, Exceptions)"]
+
+    API --> INFRA
+    API --> APP
+    INFRA --> APP
+    INFRA --> DOM
+    APP --> DOM
+```
+
 ```text
 src/
 ├── Inventory.Domain/          # Core Entities, Value Objects, Enums, Domain Exceptions
@@ -83,10 +98,46 @@ tests/
 └── Inventory.ArchitectureTests/
 ```
 
-### 3.3 Process View
-- **Sales Order State Machine:** `Draft` -> `Pending` -> `Confirmed` (reserves stock) -> `Processing` -> `Fulfilled` (deducts stock & writes ledger). Cancellation from `Confirmed`/`Processing` atomically releases reservations.
-- **Purchase Order State Machine:** `Draft` -> `Submitted` -> `Approved` -> `PartiallyReceived` -> `Received` (increments stock, updates moving average cost, writes ledger).
-- **Stock Transfer State Machine:** `Draft` -> `Requested` -> `InTransit` (deducts source `OnHand`, increments destination `InTransit`, writes `TransferOut` ledger) -> `Received` (decrements destination `InTransit`, increments destination `OnHand`, writes `TransferIn` ledger).
+### 3.3 Process View (Domain State Machines)
+
+#### Sales Order Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Pending : Submit
+    Pending --> Confirmed : Confirm (Reserves Stock)
+    Confirmed --> Processing : Begin Picking
+    Processing --> Fulfilled : Fulfill (Deducts Stock & Writes Ledger)
+    Pending --> Cancelled : Cancel
+    Confirmed --> Cancelled : Cancel (Releases Reservation)
+    Processing --> Cancelled : Cancel (Releases Reservation)
+```
+
+#### Purchase Order Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Submitted : Submit
+    Submitted --> Approved : Approve
+    Approved --> PartiallyReceived : Partial GRN (Updates Moving Avg Cost)
+    PartiallyReceived --> PartiallyReceived : Partial GRN
+    Approved --> Received : Full GRN (Increments Stock & Writes Ledger)
+    PartiallyReceived --> Received : Final GRN
+    Draft --> Cancelled : Cancel
+    Submitted --> Cancelled : Cancel
+    Approved --> Cancelled : Cancel
+```
+
+#### Stock Transfer Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Requested : Request Transfer
+    Requested --> InTransit : Dispatch (Deducts Source OnHand -> InTransit)
+    InTransit --> Received : Receive (Increments Dest OnHand & Writes Ledger)
+    Draft --> Cancelled : Cancel
+    Requested --> Cancelled : Cancel
+```
 
 ### 3.4 Physical View
 - Deployed as multi-stage Docker containers (`inventory-db`, `inventory-api`, `inventory-web`) connected via an internal Docker bridge network with persistent volume storage for PostgreSQL and health check orchestration.

@@ -1,6 +1,53 @@
 # Enterprise Inventory & Order Management SaaS
 
-A production-oriented, multi-tenant **Enterprise Inventory & Order Management SaaS** built with **ASP.NET Core Web API**, **Entity Framework Core**, **PostgreSQL**, **Next.js (TypeScript, Tailwind CSS, shadcn/ui)**, and **Docker**.
+A production-oriented, multi-tenant **Enterprise Inventory & Order Management SaaS** built with **ASP.NET Core Web API (.NET 9)**, **Entity Framework Core**, **PostgreSQL**, **Next.js 15 (TypeScript, Tailwind CSS)**, and **Docker**.
+
+---
+
+## Live Deployment
+
+- **Web Dashboard (Vercel):** [https://enterprise-inventory-and-order-mana.vercel.app](https://enterprise-inventory-and-order-mana.vercel.app)
+- **Backend API & Swagger (Render):** [https://enterprise-inventory-and-order.onrender.com/swagger](https://enterprise-inventory-and-order.onrender.com/swagger)
+
+> **Interactive Demo Workspace:** The login page includes 1-click auto-fill credentials for 6 distinct RBAC roles (`Owner`, `Warehouse Manager`, `Sales Representative`, `Procurement Officer`, `Inventory Clerk`, and `Compliance Auditor`) pre-seeded in `Acme Industrial Supply [DEMO]`.
+
+---
+
+## System & Deployment Architecture
+
+```mermaid
+flowchart TB
+    User["Business Users / Browser"]
+
+    subgraph Cloud["Production Deployment Topology"]
+        Web["Next.js 15 Frontend<br/>(Vercel Edge / App Router)"]
+        Api["ASP.NET Core Web API (.NET 9)<br/>(Render Docker / Clean Architecture)"]
+        Bg["Hosted Background Services<br/>(Low-Stock Monitor & Ledger Checks)"]
+        Db[("PostgreSQL 17<br/>(Managed Cloud DB / ACID)")]
+    end
+
+    User -->|"HTTPS"| Web
+    User -->|"HTTPS / REST JSON + JWT"| Api
+    Web -.->|"CORS + Bearer Auth"| Api
+    Api -->|"EF Core / Npgsql (SELECT FOR UPDATE)"| Db
+    Bg -->|"Periodic Tenant-Scoped Scans"| Db
+```
+
+### Clean Architecture Dependency Flow
+
+```mermaid
+flowchart LR
+    API["Inventory.API<br/>(Controllers, Middleware, Swagger, DI Root)"]
+    INFRA["Inventory.Infrastructure<br/>(EF Core, PostgreSQL, Identity, Tenancy, Jobs)"]
+    APP["Inventory.Application<br/>(Use Cases, DTOs, FluentValidation, Interfaces)"]
+    DOM["Inventory.Domain<br/>(Entities, Value Objects, Domain Events, Invariants)"]
+
+    API --> INFRA
+    API --> APP
+    INFRA --> APP
+    INFRA --> DOM
+    APP --> DOM
+```
 
 ---
 
@@ -32,26 +79,26 @@ A production-oriented, multi-tenant **Enterprise Inventory & Order Management Sa
 │   ├── Inventory.Infrastructure/   # EF Core PostgreSQL, Identity, Tenancy, Jobs, Interceptors
 │   └── Inventory.API/              # REST Controllers, Middleware, Filters, OpenAPI, DI Root
 ├── frontend/
-│   └── inventory-web/              # Next.js Enterprise Dashboard (TypeScript, Tailwind, shadcn/ui)
+│   └── inventory-web/              # Next.js Enterprise Dashboard (TypeScript, Tailwind, Lucide)
 ├── tests/
 │   ├── Inventory.Domain.UnitTests/
 │   ├── Inventory.Application.UnitTests/
 │   ├── Inventory.API.IntegrationTests/
 │   └── Inventory.ArchitectureTests/
 └── docs/
-    ├── architecture/               # C4 & 4+1 Architectural Views
-    ├── database/                   # ER Diagram, Schema, Constraints & Consistency Strategy
+    ├── architecture/               # C4, Clean Architecture & 4+1 Architectural Views
+    ├── database/                   # ER Diagram, Schema, Constraints & Concurrency Strategy
     ├── api/                        # REST API Conventions & Specification
-    ├── security/                   # Multi-Tenancy & Threat Model
+    ├── security/                   # Multi-Tenancy, Token Rotation & Threat Model
     ├── adr/                        # Architecture Decision Records (ADR-001 to ADR-006)
-    └── deployment/                 # Docker Compose, Migrations, Testing & Backup Guide
+    └── deployment/                 # Docker Compose, Cloud PaaS, Migrations & Testing Guide
 ```
 
 ---
 
 ## Documentation Links
 
-- [Architecture Overview & 4+1 Views](docs/architecture/overview.md)
+- [Architecture Overview, C4 & 4+1 Views](docs/architecture/overview.md)
 - [Database Design, ER Diagram & Inventory Consistency](docs/database/schema-and-consistency.md)
 - [REST API Specification](docs/api/api-specification.md)
 - [Security & Multi-Tenancy Architecture](docs/security/security-and-multitenancy.md)
@@ -73,5 +120,5 @@ docker compose up --build -d
 
 ### 2. Run Automated Tests
 ```bash
-dotnet test Inventory.sln
+dotnet test Inventory.sln --configuration Release
 ```
