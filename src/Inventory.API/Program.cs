@@ -102,6 +102,7 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials()
+            .SetPreflightMaxAge(TimeSpan.FromHours(24))
             .WithExposedHeaders(CorrelationIdMiddleware.HeaderName, "X-Idempotent-Replay");
     });
 });

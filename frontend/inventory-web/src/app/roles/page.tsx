@@ -109,14 +109,16 @@ export default function RolesAndPermissionsPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {roles.map((role) => (
             <Card key={role.id} className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-sm font-semibold text-slate-900">
                       {role.name}
                     </h2>
                     <Badge variant={role.isSystemRole ? "info" : "neutral"}>
-                      {role.isSystemRole ? "System Role" : "Custom Role"}
+                      <span className="whitespace-nowrap">
+                        {role.isSystemRole ? "System Role" : "Custom Role"}
+                      </span>
                     </Badge>
                   </div>
                   {role.description && (
@@ -125,8 +127,9 @@ export default function RolesAndPermissionsPage() {
                     </p>
                   )}
                 </div>
-                <span className="text-xs text-slate-500">
-                  {role.assignedMemberCount} member(s)
+                <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
+                  {role.assignedMemberCount}{" "}
+                  {role.assignedMemberCount === 1 ? "member" : "members"}
                 </span>
               </div>
 

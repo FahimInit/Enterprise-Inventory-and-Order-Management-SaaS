@@ -117,56 +117,119 @@ public sealed class ReportingService : IReportingService
     {
         var tenantId = _tenantContext.RequiredTenantId;
 
-        var organization = await _dbContext.Organizations
+        // 1. Single consolidated scalar metrics query (replaces 9 separate sequential round-trips)
+        var metrics = await _dbContext.Organizations
             .AsNoTracking()
-            .FirstAsync(o => o.Id == tenantId, cancellationToken);
-
-        var activeProductCount = await _dbContext.Products
-            .CountAsync(p => p.TenantId == tenantId && p.Status == Domain.Catalog.ProductStatus.Active, cancellationToken);
-
-        var activeCategoryCount = await _dbContext.Categories
-            .CountAsync(c => c.TenantId == tenantId && c.IsActive, cancellationToken);
-
-        var activeWarehouseCount = await _dbContext.Warehouses
-            .CountAsync(w => w.TenantId == tenantId && w.IsActive, cancellationToken);
-
-        var activeSupplierCount = await _dbContext.Suppliers
-            .CountAsync(s => s.TenantId == tenantId && s.IsActive, cancellationToken);
-
-        var valuationReport = await GetInventoryValuationReportAsync(cancellationToken);
-        var lowStockItems = await GetLowStockReportAsync(null, cancellationToken);
-
-        var openPoStats = await _dbContext.PurchaseOrders
-            .AsNoTracking()
-            .Where(po => po.TenantId == tenantId &&
-                         po.Status != PurchaseOrderStatus.Received &&
-                         po.Status != PurchaseOrderStatus.Cancelled)
-            .GroupBy(_ => 1)
-            .Select(g => new
+            .Where(o => o.Id == tenantId)
+            .Select(o => new
             {
-                Count = g.Count(),
-                TotalValue = g.Sum(x => x.TotalAmount)
+                o.Name,
+                o.BaseCurrency,
+                ActiveProductCount = _dbContext.Products
+                    .Count(p => p.TenantId == tenantId && p.Status == Domain.Catalog.ProductStatus.Active),
+                ActiveCategoryCount = _dbContext.Categories
+                    .Count(c => c.TenantId == tenantId && c.IsActive),
+                ActiveWarehouseCount = _dbContext.Warehouses
+                    .Count(w => w.TenantId == tenantId && w.IsActive),
+                ActiveSupplierCount = _dbContext.Suppliers
+                    .Count(s => s.TenantId == tenantId && s.IsActive),
+                OpenPurchaseOrderCount = _dbContext.PurchaseOrders
+                    .Count(po => po.TenantId == tenantId &&
+                                 po.Status != PurchaseOrderStatus.Received &&
+                                 po.Status != PurchaseOrderStatus.Cancelled),
+                OpenPurchaseOrderValue = _dbContext.PurchaseOrders
+                    .Where(po => po.TenantId == tenantId &&
+                                 po.Status != PurchaseOrderStatus.Received &&
+                                 po.Status != PurchaseOrderStatus.Cancelled)
+                    .Sum(po => (decimal?)po.TotalAmount) ?? 0m,
+                OpenSalesOrderCount = _dbContext.SalesOrders
+                    .Count(so => so.TenantId == tenantId &&
+                                 so.Status != SalesOrderStatus.Fulfilled &&
+                                 so.Status != SalesOrderStatus.Cancelled),
+                FulfilledSalesRevenue = _dbContext.SalesOrders
+                    .Where(so => so.TenantId == tenantId && so.Status == SalesOrderStatus.Fulfilled)
+                    .Sum(so => (decimal?)so.TotalAmount) ?? 0m,
+                PendingTransferCount = _dbContext.StockTransfers
+                    .Count(t => t.TenantId == tenantId &&
+                                (t.Status == TransferStatus.Requested || t.Status == TransferStatus.InTransit))
             })
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstAsync(cancellationToken);
 
-        var openSoCount = await _dbContext.SalesOrders
-            .CountAsync(
-                so => so.TenantId == tenantId &&
-                      so.Status != SalesOrderStatus.Fulfilled &&
-                      so.Status != SalesOrderStatus.Cancelled,
-                cancellationToken);
+        // 2. Single inventory projection used to compute both valuation breakdown and low-stock alerts
+        var inventoryRows = await (
+            from i in _dbContext.InventoryItems.AsNoTracking()
+            join w in _dbContext.Warehouses.AsNoTracking() on i.WarehouseId equals w.Id
+            join p in _dbContext.Products.AsNoTracking() on i.ProductId equals p.Id
+            join c in _dbContext.Categories.AsNoTracking() on p.CategoryId equals c.Id
+            where i.TenantId == tenantId
+            select new
+            {
+                i.Id,
+                i.WarehouseId,
+                WarehouseCode = w.Code,
+                WarehouseName = w.Name,
+                i.ProductId,
+                ProductSku = p.Sku,
+                ProductName = p.Name,
+                CategoryName = c.Name,
+                i.OnHandQuantity,
+                i.ReservedQuantity,
+                i.InTransitQuantity,
+                p.ReorderPoint,
+                p.TargetStockLevel,
+                p.MovingAverageCost
+            }).ToListAsync(cancellationToken);
 
-        var fulfilledRevenue = await _dbContext.SalesOrders
-            .AsNoTracking()
-            .Where(so => so.TenantId == tenantId && so.Status == SalesOrderStatus.Fulfilled)
-            .SumAsync(so => (decimal?)so.TotalAmount, cancellationToken) ?? 0m;
+        var warehouseSummaries = inventoryRows
+            .GroupBy(r => new { r.WarehouseId, r.WarehouseCode, r.WarehouseName })
+            .Select(g => new WarehouseValuationDto(
+                g.Key.WarehouseId,
+                g.Key.WarehouseCode,
+                g.Key.WarehouseName,
+                g.Select(x => x.ProductId).Distinct().Count(),
+                g.Sum(x => x.OnHandQuantity),
+                g.Sum(x => x.ReservedQuantity),
+                g.Sum(x => x.OnHandQuantity - x.ReservedQuantity),
+                g.Sum(x => x.InTransitQuantity),
+                decimal.Round(g.Sum(x => x.OnHandQuantity * x.MovingAverageCost), 4)))
+            .OrderByDescending(w => w.TotalValuation)
+            .ToList();
 
-        var pendingTransferCount = await _dbContext.StockTransfers
-            .CountAsync(
-                t => t.TenantId == tenantId &&
-                     (t.Status == TransferStatus.Requested || t.Status == TransferStatus.InTransit),
-                cancellationToken);
+        var totalOnHand = inventoryRows.Sum(r => r.OnHandQuantity);
+        var totalReserved = inventoryRows.Sum(r => r.ReservedQuantity);
+        var totalAvailable = totalOnHand - totalReserved;
+        var totalInTransit = inventoryRows.Sum(r => r.InTransitQuantity);
+        var totalValuation = decimal.Round(inventoryRows.Sum(r => r.OnHandQuantity * r.MovingAverageCost), 4);
 
+        var lowStockItems = inventoryRows
+            .Where(r => (r.OnHandQuantity - r.ReservedQuantity) <= r.ReorderPoint)
+            .OrderBy(r => r.OnHandQuantity - r.ReservedQuantity)
+            .ThenBy(r => r.ProductSku)
+            .Select(r =>
+            {
+                var available = r.OnHandQuantity - r.ReservedQuantity;
+                var suggested = Math.Max(1, r.TargetStockLevel - available);
+                return new LowStockAlertItemDto(
+                    r.Id,
+                    r.WarehouseId,
+                    r.WarehouseCode,
+                    r.WarehouseName,
+                    r.ProductId,
+                    r.ProductSku,
+                    r.ProductName,
+                    r.CategoryName,
+                    r.OnHandQuantity,
+                    r.ReservedQuantity,
+                    available,
+                    r.InTransitQuantity,
+                    r.ReorderPoint,
+                    r.TargetStockLevel,
+                    suggested,
+                    r.MovingAverageCost);
+            })
+            .ToList();
+
+        // 3. Recent immutable stock ledger movements
         var recentMovements = await (
             from m in _dbContext.StockMovements.AsNoTracking()
             join w in _dbContext.Warehouses.AsNoTracking() on m.WarehouseId equals w.Id
@@ -198,25 +261,25 @@ public sealed class ReportingService : IReportingService
             .ToListAsync(cancellationToken);
 
         return new DashboardSummaryDto(
-            organization.Name,
-            organization.BaseCurrency,
+            metrics.Name,
+            metrics.BaseCurrency,
             isDemoEnvironment,
-            activeProductCount,
-            activeCategoryCount,
-            activeWarehouseCount,
-            activeSupplierCount,
-            valuationReport.TotalOnHandUnits,
-            valuationReport.TotalReservedUnits,
-            valuationReport.TotalAvailableUnits,
-            valuationReport.TotalInTransitUnits,
-            valuationReport.TotalInventoryValuation,
+            metrics.ActiveProductCount,
+            metrics.ActiveCategoryCount,
+            metrics.ActiveWarehouseCount,
+            metrics.ActiveSupplierCount,
+            totalOnHand,
+            totalReserved,
+            totalAvailable,
+            totalInTransit,
+            totalValuation,
             lowStockItems.Count,
-            openPoStats?.Count ?? 0,
-            openPoStats?.TotalValue ?? 0m,
-            openSoCount,
-            fulfilledRevenue,
-            pendingTransferCount,
-            valuationReport.ByWarehouse,
+            metrics.OpenPurchaseOrderCount,
+            metrics.OpenPurchaseOrderValue,
+            metrics.OpenSalesOrderCount,
+            metrics.FulfilledSalesRevenue,
+            metrics.PendingTransferCount,
+            warehouseSummaries,
             lowStockItems.Take(10).ToList(),
             recentMovements);
     }

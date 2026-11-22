@@ -130,7 +130,7 @@ export default function LoginPage() {
             EI
           </div>
           <span className="text-xl font-bold tracking-tight text-slate-900">
-            NexusInventory SaaS
+            Enterprise Inventory &amp; Order SaaS
           </span>
         </div>
         <h1 className="mt-3 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
@@ -244,7 +244,7 @@ export default function LoginPage() {
                     Click any role below to pre-fill the form with verified demo credentials:
                   </p>
                 </div>
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 border border-emerald-200">
+                <span className="hidden shrink-0 whitespace-nowrap sm:inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 border border-emerald-200">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   Ready to test
                 </span>
@@ -275,16 +275,16 @@ export default function LoginPage() {
                         </div>
 
                         <div className="mt-2.5 space-y-1 font-mono text-[11px]">
-                          <div className="flex items-center justify-between text-slate-600">
-                            <span className="text-[10px] font-sans font-medium text-slate-600 uppercase">
+                          <div className="flex items-center justify-between gap-2 text-slate-600">
+                            <span className="shrink-0 text-[10px] font-sans font-medium text-slate-600 uppercase">
                               Email:
                             </span>
-                            <span className="text-slate-800 font-medium truncate max-w-[170px]" title={acc.email}>
+                            <span className="text-slate-800 font-medium truncate" title={acc.email}>
                               {acc.email}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between text-slate-600">
-                            <span className="text-[10px] font-sans font-medium text-slate-600 uppercase">
+                          <div className="flex items-center justify-between gap-2 text-slate-600">
+                            <span className="shrink-0 text-[10px] font-sans font-medium text-slate-600 uppercase">
                               Password:
                             </span>
                             <span className="text-slate-800 font-semibold">

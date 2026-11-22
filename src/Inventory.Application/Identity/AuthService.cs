@@ -453,7 +453,13 @@ public sealed class AuthService : IAuthService
                 org.BaseCurrency,
                 member.RoleId,
                 RoleName = role.Name,
-                member.IsOwner
+                member.IsOwner,
+                Permissions = _dbContext.RolePermissions
+                    .IgnoreQueryFilters()
+                    .Where(rp => rp.TenantId == member.TenantId && rp.RoleId == member.RoleId)
+                    .Select(rp => rp.Permission)
+                    .OrderBy(p => p)
+                    .ToList()
             }).ToListAsync(cancellationToken);
 
         var workspaces = memberships
@@ -476,15 +482,6 @@ public sealed class AuthService : IAuthService
         }
 
         var activeWorkspace = workspaces.First(w => w.OrganizationId == activeMembership.TenantId);
-
-        var permissions = await _dbContext.RolePermissions
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(rp => rp.TenantId == activeMembership.TenantId && rp.RoleId == activeMembership.RoleId)
-            .Select(rp => rp.Permission)
-            .OrderBy(p => p)
-            .ToListAsync(cancellationToken);
-
-        return (workspaces, activeWorkspace, permissions);
+        return (workspaces, activeWorkspace, activeMembership.Permissions);
     }
 }

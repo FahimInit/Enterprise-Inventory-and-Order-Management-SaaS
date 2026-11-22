@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.refreshToken) {
         await apiRequest("/auth/logout", {
           method: "POST",
+          keepalive: true,
           body: JSON.stringify({ refreshToken: session.refreshToken })
         });
       }

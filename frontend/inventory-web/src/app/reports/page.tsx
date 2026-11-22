@@ -75,7 +75,8 @@ export default function ReportsPage() {
 
           <Card className="p-4">
             <div className="text-xs font-medium text-slate-500">
-              Procurement Spend ({orderStats.totalPurchaseOrders} POs)
+              Procurement Spend ({orderStats.totalPurchaseOrders}{" "}
+              {orderStats.totalPurchaseOrders === 1 ? "PO" : "POs"})
             </div>
             <div className="mt-1 text-2xl font-semibold text-slate-900">
               {formatCurrency(orderStats.totalProcurementSpend, currency)}
@@ -84,7 +85,8 @@ export default function ReportsPage() {
 
           <Card className="p-4">
             <div className="text-xs font-medium text-slate-500">
-              Fulfilled Sales Revenue ({orderStats.totalSalesOrders} SOs)
+              Fulfilled Sales Revenue ({orderStats.totalSalesOrders}{" "}
+              {orderStats.totalSalesOrders === 1 ? "SO" : "SOs"})
             </div>
             <div className="mt-1 text-2xl font-semibold text-slate-900">
               {formatCurrency(orderStats.totalFulfilledRevenue, currency)}

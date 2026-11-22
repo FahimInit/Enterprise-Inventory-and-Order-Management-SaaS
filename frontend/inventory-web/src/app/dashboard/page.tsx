@@ -78,8 +78,11 @@ export default function DashboardPage() {
       {summary.isDemoEnvironment && (
         <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
           <strong>Demo Environment Active:</strong> You are viewing real database
-          records seeded by the backend Demo Seeder (`Seed:EnableDemoData = true`).
-          All stock movements, reservations, and orders are processed by the live
+          records seeded by the backend Demo Seeder (
+          <code className="rounded bg-amber-100/80 px-1 py-0.5 font-mono text-[11px]">
+            Seed:EnableDemoData = true
+          </code>
+          ). All stock movements, reservations, and orders are processed by the live
           PostgreSQL backend engine.
         </div>
       )}

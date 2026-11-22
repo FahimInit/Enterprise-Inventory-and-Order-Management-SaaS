@@ -136,7 +136,7 @@ export default function AuditLogsPage() {
                         {log.summary}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        {(log.beforeStateJson || log.afterStateJson) && (
+                        {log.beforeStateJson || log.afterStateJson ? (
                           <button
                             type="button"
                             onClick={() => setSelectedLog(log)}
@@ -144,6 +144,8 @@ export default function AuditLogsPage() {
                           >
                             Inspect JSON
                           </button>
+                        ) : (
+                          <span className="text-slate-400">—</span>
                         )}
                       </td>
                     </tr>
