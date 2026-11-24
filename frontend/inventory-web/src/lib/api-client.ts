@@ -3,7 +3,25 @@ import { AuthResponse, ProblemDetailsError } from "./types";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api/v1";
 
-const STORAGE_KEY = "enterprise_inventory_session_v1";
+export const STORAGE_KEY = "enterprise_inventory_session_v1";
+export const AUTH_BROADCAST_CHANNEL = "enterprise_inventory_auth_sync";
+
+export type AuthBroadcastMessage =
+  | { type: "LOGOUT" }
+  | { type: "SESSION_UPDATED"; session: AuthResponse };
+
+export function broadcastAuthEvent(message: AuthBroadcastMessage): void {
+  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
+    return;
+  }
+  try {
+    const channel = new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+    channel.postMessage(message);
+    channel.close();
+  } catch {
+    // Fallback handled by window storage event listener
+  }
+}
 
 export class ApiClientError extends Error {
   public readonly status: number;
@@ -39,14 +57,23 @@ export function getStoredSession(): AuthResponse | null {
   }
 }
 
-export function saveStoredSession(session: AuthResponse | null): void {
+export function saveStoredSession(
+  session: AuthResponse | null,
+  options: { broadcast?: boolean } = { broadcast: true }
+): void {
   if (typeof window === "undefined") {
     return;
   }
   if (!session) {
     window.localStorage.removeItem(STORAGE_KEY);
+    if (options.broadcast !== false) {
+      broadcastAuthEvent({ type: "LOGOUT" });
+    }
   } else {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    if (options.broadcast !== false) {
+      broadcastAuthEvent({ type: "SESSION_UPDATED", session });
+    }
   }
 }
 

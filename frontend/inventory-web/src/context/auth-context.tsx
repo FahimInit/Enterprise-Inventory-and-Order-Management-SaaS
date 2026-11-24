@@ -4,6 +4,9 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthResponse } from "@/lib/types";
 import {
+  AUTH_BROADCAST_CHANNEL,
+  AuthBroadcastMessage,
+  STORAGE_KEY,
   apiRequest,
   getStoredSession,
   saveStoredSession
@@ -29,10 +32,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const stored = getStoredSession();
     setSessionState(stored);
     setIsLoading(false);
-  }, []);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      channel = new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+      channel.onmessage = (event: MessageEvent<AuthBroadcastMessage>) => {
+        const message = event.data;
+        if (!message) return;
+
+        if (message.type === "LOGOUT") {
+          setSessionState(null);
+          router.replace("/login");
+        } else if (message.type === "SESSION_UPDATED") {
+          setSessionState(message.session);
+        }
+      };
+    }
+
+    // Storage event fallback for browsers without BroadcastChannel support
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return;
+
+      if (!event.newValue) {
+        setSessionState(null);
+        router.replace("/login");
+      } else {
+        try {
+          setSessionState(JSON.parse(event.newValue) as AuthResponse);
+        } catch {
+          setSessionState(null);
+          router.replace("/login");
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [router]);
 
   const setSession = (next: AuthResponse | null) => {
-    saveStoredSession(next);
+    saveStoredSession(next, { broadcast: true });
     setSessionState(next);
   };
 
