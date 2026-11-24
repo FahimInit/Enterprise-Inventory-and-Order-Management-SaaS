@@ -10,7 +10,7 @@ import { apiRequest } from "@/lib/api-client";
 import { AuthResponse } from "@/lib/types";
 import { useAuth } from "@/context/auth-context";
 import { ErrorBanner } from "@/components/ui/enterprise-ui";
-import { ShieldCheck, ArrowRight, UserCheck, KeyRound, Building2 } from "lucide-react";
+import { ShieldCheck, ArrowRight, UserCheck, KeyRound, Building2, Eye, EyeOff } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid business email address."),
@@ -84,6 +84,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -182,12 +183,26 @@ export default function LoginPage() {
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
                     Password
                   </label>
-                  <input
-                    type="password"
-                    {...register("password")}
-                    placeholder="••••••••••••"
-                    className="mt-1.5 w-full rounded-md border border-slate-300 px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
-                  />
+                  <div className="relative mt-1.5">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      {...register("password")}
+                      placeholder="••••••••••••"
+                      className="w-full rounded-md border border-slate-300 py-2 pl-3.5 pr-10 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-700 focus:outline-none"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   {errors.password && (
                     <p className="mt-1 text-xs text-red-600 font-medium">
                       {errors.password.message}
